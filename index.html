@@ -6,28 +6,49 @@
     <style type="text/css">
         #nicknamebox, #nickname, #textbox, #button {
             position: fixed;
+            bottom: 10px;
         }
 
-        #nickname, #button {
+        #textbox {
             left: 166px;
+            width: 500px;
+        }
+
+        #button {
+            left: 669px;
+        }
+
+        #usr {
+            width: 20%;
+            border: 1px;
+            position: fixed;
+        }
+
+        #cht {
+            width: 79%;
+            display: inline-block;
+            position: fixed;
+            left: 20%;
         }
     </style>
 </head>
 <body>
 
     <input type="text" placeholder="pseudo" id="nicknamebox">
-    <button id="nickname">Send</button><br>
     <input type="text" placeholder="message" id="textbox">
     <button id="button">Send</button>
-    <h2>Les utilisateurs connectés:</h2>
+    <div id="usr">
+    <h2>Utilisateurs :</h2>
     <div id="userBox"></div>
+    </div>
+    <div id="cht">
     <h2>Chat:</h2>
     <div id="box"></div>
+    </div>
 
     <script>
         var socket = new WebSocket("ws://127.0.0.1:8080/ws");
         var button = document.getElementById("button");
-        var nickname = document.getElementById("nickname");
         var nicknamebox = document.getElementById("nicknamebox");
         var textbox = document.getElementById("textbox");
         var anon = "";
@@ -36,14 +57,12 @@
         function sendUser() {
             socket.send("{\"title\": \"new user\", \"content\": \"" + nicknamebox.value + "\", \"users\": \"" + userList + "\"}");
             nicknamebox.disabled = true;
-            nickname.disabled = true;
         }
 
-        nickname.addEventListener("click", function(event){ 
-            sendUser();
-        });
-
         button.addEventListener("click", function(event){
+            if(nicknamebox.disabled == false) {
+                sendUser();
+            }
             socket.send("{\"title\": \"message\", \"content\": " + JSON.stringify(nicknamebox.value + "-> " + textbox.value) + ", \"users\": \"" + userList + "\"}");
             nicknamebox.disabled = true;
         });
@@ -69,9 +88,6 @@
                     box.innerHTML = element;
                     document.getElementById("userBox").appendChild(box);
                 });
-            }
-            if(nicknamebox.disabled == false && nicknamebox.value != anon) {
-                sendUser();
             }
         }
         

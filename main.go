@@ -6,9 +6,12 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	// "sync"
 )
 
 var upgrader = websocket.Upgrader{}
+
+// var mutex = &sync.Mutex{}
 
 func check(e error) {
 	if e != nil {
@@ -116,7 +119,6 @@ func (c *Client) read() {
 	mess, err := json.Marshal(j)
 	check(err)
 	hub.broadcast <- mess
-
 	for {
 		_, message, err := c.ws.ReadMessage()
 		check(err)
@@ -162,12 +164,11 @@ func wsPage(res http.ResponseWriter, req *http.Request) {
 		ws:   conn,
 		send: make(chan []byte),
 	}
-
 	hub.addClient <- client
 	log.Print("new connection")
 
 	go client.write()
-	go client.read()
+	client.read()
 }
 
 func homePage(res http.ResponseWriter, req *http.Request) {
