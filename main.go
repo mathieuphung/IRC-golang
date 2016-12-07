@@ -6,12 +6,9 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	// "sync"
 )
 
 var upgrader = websocket.Upgrader{}
-
-// var mutex = &sync.Mutex{}
 
 func check(e error) {
 	if e != nil {
@@ -154,21 +151,23 @@ func (c *Client) read() {
 }
 
 func wsPage(res http.ResponseWriter, req *http.Request) {
-	conn, err := upgrader.Upgrade(res, req, nil)
-	if err != nil {
-		http.NotFound(res, req)
-		return
-	}
+	for {
+		conn, err := upgrader.Upgrade(res, req, nil)
+		if err != nil {
+			http.NotFound(res, req)
+			return
+		}
 
-	client := &Client{
-		ws:   conn,
-		send: make(chan []byte),
-	}
-	hub.addClient <- client
-	log.Print("new connection")
+		client := &Client{
+			ws:   conn,
+			send: make(chan []byte),
+		}
+		hub.addClient <- client
+		log.Print("new connection")
 
-	go client.write()
-	client.read()
+		go client.write()
+		go client.read()
+	}
 }
 
 func homePage(res http.ResponseWriter, req *http.Request) {
@@ -179,5 +178,5 @@ func main() {
 	go hub.start()
 	http.HandleFunc("/ws", wsPage)
 	http.HandleFunc("/", homePage)
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":8000", nil)
 }
