@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat éphémère</title>
+    <style type="text/css">
+        #nicknamebox, #nickname, #textbox, #button {
+            position: fixed;
+        }
+
+        #nickname, #button {
+            left: 166px;
+        }
+    </style>
+</head>
+<body>
+
+    <input type="text" placeholder="pseudo" id="nicknamebox">
+    <button id="nickname">Send</button><br>
+    <input type="text" placeholder="message" id="textbox">
+    <button id="button">Send</button>
+    <h2>Les utilisateurs connectés:</h2>
+    <div id="userBox"></div>
+    <h2>Chat:</h2>
+    <div id="box"></div>
+
+    <script>
+        var socket = new WebSocket("ws://127.0.0.1:8080/ws");
+        var button = document.getElementById("button");
+        var nickname = document.getElementById("nickname");
+        var nicknamebox = document.getElementById("nicknamebox");
+        var textbox = document.getElementById("textbox");
+        var anon = "";
+        var userList = "";
+
+        function sendUser() {
+            socket.send("{\"title\": \"new user\", \"content\": \"" + nicknamebox.value + "\", \"users\": \"" + userList + "\"}");
+            nicknamebox.disabled = true;
+            nickname.disabled = true;
+        }
+
+        nickname.addEventListener("click", function(event){ 
+            sendUser();
+        });
+
+        button.addEventListener("click", function(event){
+            socket.send("{\"title\": \"message\", \"content\": " + JSON.stringify(nicknamebox.value + "-> " + textbox.value) + ", \"users\": \"" + userList + "\"}");
+            nicknamebox.disabled = true;
+        });
+
+        socket.onopen = function(event){
+            console.log("Socket opened successfully");
+        }
+        socket.onmessage = function(event){
+            var json = JSON.parse(event.data);
+            var box = document.createElement("div");
+            if(json.title == "message") {
+                box.innerHTML = json.content.replace("->", ": ");
+                document.getElementById("box").appendChild(box); 
+            } else if(json.title == "newUser") {
+                userBox.innerHTML = json.content;
+            }
+            if(json.users != userList) {
+                userList = json.users;
+                userBox.innerHTML = "";
+                var users = json.users.split(',');
+                users.forEach(function(element) {
+                    var box = document.createElement("div");
+                    box.innerHTML = element;
+                    document.getElementById("userBox").appendChild(box);
+                });
+            }
+            if(nicknamebox.disabled == false && nicknamebox.value != anon) {
+                sendUser();
+            }
+        }
+        
+        window.onbeforeunload = function(event){
+            socket.send("{\"title\": \"user disconnect\", \"content\": \"" + nicknamebox.value + "\", \"users\": \"" + userList + "\"}");
+            socket.close();
+        }
+
+        document.addEventListener("DOMContentLoaded", function(event) { 
+            var number = "";
+            var possible = "0123456789";
+
+            for( var i=0; i < 5; i++ )
+                number += possible.charAt(Math.floor(Math.random() * possible.length));
+            anon = "Anonymous" + number;
+            nicknamebox.value = anon;
+        });
+    </script>
+</body>
+</html>
