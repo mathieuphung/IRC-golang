@@ -54,17 +54,38 @@
         var anon = "";
         var userList = "";
 
+        function isInArray(array, value) {
+            return array.indexOf(value) > -1;
+        }
+
+        function usernameCheck(name, i = 0) {
+            var nameExists = false
+            if(i != 0) {
+                name = name + i.toString();
+                nicknamebox.value = name;
+            }
+            if(isInArray(userList, nicknamebox.value)) {
+                console.log(name);
+                nameExists = true
+            }
+            if(nameExists == true) {
+                i++
+                return usernameCheck(name, i)
+            } else {
+                return name
+            }
+        }
+
         function sendUser() {
             socket.send("{\"title\": \"new user\", \"content\": \"" + nicknamebox.value + "\", \"users\": \"" + userList + "\"}");
             nicknamebox.disabled = true;
         }
 
         button.addEventListener("click", function(event){
-            if(nicknamebox.disabled == false) {
-                sendUser();
+            if(isInArray(userList, nicknamebox.value) && nicknamebox.disabled == false) {
+                nicknamebox.value = usernameCheck(nicknamebox.value)
             }
             socket.send("{\"title\": \"message\", \"content\": " + JSON.stringify(nicknamebox.value + "-> " + textbox.value) + ", \"users\": \"" + userList + "\"}");
-            nicknamebox.disabled = true;
         });
 
         socket.onopen = function(event){
@@ -76,6 +97,9 @@
             if(json.title == "message") {
                 box.innerHTML = json.content.replace("->", ": ");
                 document.getElementById("box").appendChild(box); 
+                if(nicknamebox.disabled == false) {
+                    sendUser();
+                }
             } else if(json.title == "newUser") {
                 userBox.innerHTML = json.content;
             }

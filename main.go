@@ -5,13 +5,15 @@ import (
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	// "strconv"
 	"strings"
 )
 
 var upgrader = websocket.Upgrader{}
 
-func check(e error) {
+func check(e error, function string) {
 	if e != nil {
+		log.Printf(function + " error : ")
 		log.Print(e)
 	}
 }
@@ -66,14 +68,24 @@ type Client struct {
 	send chan []byte
 }
 
-func userExists(name string) bool {
-	for _, v := range users {
-		if v == name {
-			return true
-		}
-	}
-	return false
-}
+// func usernameCheck(name string, i int) string {
+// 	var nameExists bool
+// 	if i != 0 {
+// 		name = name + strconv.Itoa(i)
+// 	}
+// 	log.Print(name)
+// 	for _, v := range users {
+// 		if v == name {
+// 			nameExists = true
+// 		}
+// 	}
+// 	if nameExists {
+// 		i++
+// 		return usernameCheck(name, i)
+// 	} else {
+// 		return name
+// 	}
+// }
 
 func userDelete(name string) []string {
 	for k, v := range users {
@@ -114,11 +126,11 @@ func (c *Client) read() {
 		j.Users = usersList
 	}
 	mess, err := json.Marshal(j)
-	check(err)
+	check(err, "json.Marshal(j)")
 	hub.broadcast <- mess
 	for {
 		_, message, err := c.ws.ReadMessage()
-		check(err)
+		check(err, "c.ws.ReadMessage()")
 		if err != nil {
 			hub.removeClient <- c
 			c.ws.Close()
@@ -126,14 +138,13 @@ func (c *Client) read() {
 		}
 
 		err = json.Unmarshal(message, &j)
-		check(err)
+		check(err, "json.Unmarshal(message, &j)")
 
 		log.Print(j.Title)
 		if j.Title == "new user" {
-			if !userExists(j.Content) {
-				users = append(users, j.Content)
-				log.Print(users)
-			}
+			// j.Content = usernameCheck(j.Content, 0)
+			users = append(users, j.Content)
+			log.Print(users)
 		}
 
 		if j.Title == "user disconnect" {
@@ -144,7 +155,7 @@ func (c *Client) read() {
 			j.Users = usersList
 		}
 		mess, err := json.Marshal(j)
-		check(err)
+		check(err, "json.Marshal(j)")
 
 		hub.broadcast <- mess
 	}
@@ -178,5 +189,6 @@ func main() {
 	go hub.start()
 	http.HandleFunc("/ws", wsPage)
 	http.HandleFunc("/", homePage)
-	http.ListenAndServe(":8000", nil)
+	err := http.ListenAndServe(":8000", nil)
+	check(err, "http.ListenAndServe(\":8000\", nil)")
 }
