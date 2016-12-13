@@ -85,7 +85,14 @@
             if(isInArray(userList, nicknamebox.value) && nicknamebox.disabled == false) {
                 nicknamebox.value = usernameCheck(nicknamebox.value)
             }
-            socket.send("{\"title\": \"message\", \"content\": " + JSON.stringify(nicknamebox.value + "-> " + textbox.value) + ", \"users\": \"" + userList + "\"}");
+            if(textbox.value.charAt(0) == "/") {
+                var slice = textbox.value.slice(1);
+                var to = slice.split(" ")[0];
+                var mess = slice.split(/ (.+)/)[1];
+                socket.send("{\"title\": \"pm\", \"content\": " + JSON.stringify("from " +nicknamebox.value + "-> " + mess) + ", \"to\": " + JSON.stringify(to) + ", \"users\": \"" + userList + "\"}");
+            } else {
+                socket.send("{\"title\": \"message\", \"content\": " + JSON.stringify(nicknamebox.value + "-> " + textbox.value) + ", \"users\": \"" + userList + "\"}");
+            }
         });
 
         socket.onopen = function(event){
@@ -94,7 +101,7 @@
         socket.onmessage = function(event){
             var json = JSON.parse(event.data);
             var box = document.createElement("div");
-            if(json.title == "message") {
+            if(json.title == "message" || json.title == "pm") {
                 box.innerHTML = json.content.replace("->", ": ");
                 document.getElementById("box").appendChild(box); 
                 if(nicknamebox.disabled == false) {
@@ -103,6 +110,7 @@
             } else if(json.title == "newUser") {
                 userBox.innerHTML = json.content;
             }
+
             if(json.users != userList) {
                 userList = json.users;
                 userBox.innerHTML = "";

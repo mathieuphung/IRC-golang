@@ -20,12 +20,14 @@ func check(e error, function string) {
 
 type Hub struct {
 	clients      map[*Client]bool
+	pm           chan []byte
 	broadcast    chan []byte
 	addClient    chan *Client
 	removeClient chan *Client
 }
 
 var hub = Hub{
+	pm:           make(chan []byte),
 	broadcast:    make(chan []byte),
 	addClient:    make(chan *Client),
 	removeClient: make(chan *Client),
@@ -36,6 +38,7 @@ type Message struct {
 	Title   string `json:"title"`
 	Content string `json:"content"`
 	Users   string `json:"users"`
+	To      string `json:"to"`
 }
 
 var users []string
@@ -45,6 +48,9 @@ func (hub *Hub) start() {
 		select {
 		case conn := <-hub.addClient:
 			hub.clients[conn] = true
+			for conn := range hub.clients {
+				log.Print(conn.nickname)
+			}
 		case conn := <-hub.removeClient:
 			if _, ok := hub.clients[conn]; ok {
 				delete(hub.clients, conn)
@@ -59,33 +65,29 @@ func (hub *Hub) start() {
 					delete(hub.clients, conn)
 				}
 			}
+		case message := <-hub.pm:
+			var mess Message
+			err := json.Unmarshal(message, &mess)
+			check(err, "json.Unmarshal(message, &mess)")
+			for conn := range hub.clients {
+				if conn.nickname == mess.To {
+					select {
+					case conn.send <- message:
+					default:
+						close(conn.send)
+						delete(hub.clients, conn)
+					}
+				}
+			}
 		}
 	}
 }
 
 type Client struct {
-	ws   *websocket.Conn
-	send chan []byte
+	ws       *websocket.Conn
+	send     chan []byte
+	nickname string
 }
-
-// func usernameCheck(name string, i int) string {
-// 	var nameExists bool
-// 	if i != 0 {
-// 		name = name + strconv.Itoa(i)
-// 	}
-// 	log.Print(name)
-// 	for _, v := range users {
-// 		if v == name {
-// 			nameExists = true
-// 		}
-// 	}
-// 	if nameExists {
-// 		i++
-// 		return usernameCheck(name, i)
-// 	} else {
-// 		return name
-// 	}
-// }
 
 func userDelete(name string) []string {
 	for k, v := range users {
@@ -119,7 +121,6 @@ func (c *Client) read() {
 		hub.removeClient <- c
 		c.ws.Close()
 	}()
-
 	var j Message
 	usersList := strings.Join(users, ",")
 	if j.Users != usersList {
@@ -141,23 +142,33 @@ func (c *Client) read() {
 		check(err, "json.Unmarshal(message, &j)")
 
 		log.Print(j.Title)
-		if j.Title == "new user" {
-			// j.Content = usernameCheck(j.Content, 0)
-			users = append(users, j.Content)
-			log.Print(users)
+		if j.Title == "pm" {
+			mess, err := json.Marshal(j)
+			check(err, "json.Marshal(j)")
+
+			hub.pm <- mess
+		} else {
+			if j.Title == "new user" {
+				// j.Content = usernameCheck(j.Content, 0)
+				c.nickname = j.Content
+				users = append(users, j.Content)
+				log.Print(users)
+			}
+
+			if j.Title == "user disconnect" {
+				users = userDelete(j.Content)
+			}
+			usersList := strings.Join(users, ",")
+			if j.Users != usersList {
+				j.Users = usersList
+			}
+			log.Print(c)
+			mess, err := json.Marshal(j)
+			check(err, "json.Marshal(j)")
+
+			hub.broadcast <- mess
 		}
 
-		if j.Title == "user disconnect" {
-			users = userDelete(j.Content)
-		}
-		usersList := strings.Join(users, ",")
-		if j.Users != usersList {
-			j.Users = usersList
-		}
-		mess, err := json.Marshal(j)
-		check(err, "json.Marshal(j)")
-
-		hub.broadcast <- mess
 	}
 }
 
